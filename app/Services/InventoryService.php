@@ -161,11 +161,16 @@ class InventoryService
         return DB::transaction(function () use ($data) {
             $group = MovementGroup::create([
                 'type'               => MovementType::Transfer,
+                'status'             => 'active',
                 'reference_doc'      => $data['reference_doc'] ?? null,
                 'user_id'            => $data['user_id'],
                 'origin_location_id' => $data['origin_location_id'],
                 'notes'              => $data['notes'] ?? null,
+                'customer_name'      => $data['customer_name'] ?? null,
+                'customer_phone'     => $data['customer_phone'] ?? null,
             ]);
+
+            $destLocationId = $data['dest_location_id'] ?? null;  // null = third-party transfer
 
             foreach ($data['lines'] as $line) {
                 $quantity = (float) $line['quantity'];
@@ -183,16 +188,18 @@ class InventoryService
                     'unit_cost'        => $unitCost,
                 ]);
 
-                // Movement 2 – into destination
-                InventoryMovement::create([
-                    'group_id'         => $group->id,
-                    'product_id'       => $line['product_id'],
-                    'batch_id'         => $batchId,
-                    'from_location_id' => null,
-                    'to_location_id'   => $data['dest_location_id'],
-                    'quantity'         => $quantity,
-                    'unit_cost'        => $unitCost,
-                ]);
+                // Movement 2 – into destination (skip for third-party transfers)
+                if ($destLocationId !== null) {
+                    InventoryMovement::create([
+                        'group_id'         => $group->id,
+                        'product_id'       => $line['product_id'],
+                        'batch_id'         => $batchId,
+                        'from_location_id' => null,
+                        'to_location_id'   => $destLocationId,
+                        'quantity'         => $quantity,
+                        'unit_cost'        => $unitCost,
+                    ]);
+                }
             }
 
             return $group->load('movements');
@@ -278,6 +285,40 @@ class InventoryService
     // =========================================================================
     // 5. CANCEL MOVEMENT GROUP (only sales)
     // =========================================================================
+
+    /**
+     * Cancel a transfer: creates reverse movements to restore stock,
+     * then marks the group as 'cancelled'.
+     */
+    public function cancelTransfer(MovementGroup $group): void
+    {
+        DB::transaction(function () use ($group) {
+            if ($group->isCancelled()) {
+                throw new RuntimeException("Transfer #{$group->id} is already cancelled.");
+            }
+
+            $group->load('movements');
+
+            foreach ($group->movements as $movement) {
+                // Invert from/to — the trigger handles stock_cache update
+                InventoryMovement::create([
+                    'group_id'         => $group->id,
+                    'product_id'       => $movement->product_id,
+                    'batch_id'         => $movement->batch_id,
+                    'from_location_id' => $movement->to_location_id,   // inverted
+                    'to_location_id'   => $movement->from_location_id, // inverted
+                    'quantity'         => $movement->quantity,
+                    'unit_cost'        => $movement->unit_cost,
+                ]);
+            }
+
+            $group->update([
+                'status'       => 'cancelled',
+                'cancelled_at' => now(),
+            ]);
+        });
+    }
+
     public function cancelMovementGroup(int $groupId, int $userId): MovementGroup
     {
         return DB::transaction(function () use ($groupId, $userId) {

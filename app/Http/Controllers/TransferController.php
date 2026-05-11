@@ -59,11 +59,27 @@ class TransferController extends Controller
     {
         $validated = $request->validated();
 
+        $toRaw = $validated['to_location_id'] ?? null;
+        $destLocationId = ($toRaw === 'third_party' || empty($toRaw)) ? null : (int) $toRaw;
+
+        // Extra validation: if not third_party, must be a valid location different from origin
+        if ($destLocationId !== null) {
+            if ($destLocationId === (int) $validated['from_location_id']) {
+                return back()->withInput()->withErrors(['to_location_id' => 'El destino no puede ser igual al origen.']);
+            }
+            if (!\App\Models\Location::where('id', $destLocationId)->exists()) {
+                return back()->withInput()->withErrors(['to_location_id' => 'Ubicación de destino no válida.']);
+            }
+        }
+
         $data = [
             'from_location_id' => (int) $validated['from_location_id'],
-            'to_location_id'   => (int) $validated['to_location_id'],
+            'origin_location_id' => (int) $validated['from_location_id'],
+            'dest_location_id' => $destLocationId,
             'user_id'          => auth()->id(),
             'notes'            => $validated['notes'] ?? null,
+            'customer_name'    => $validated['customer_name'] ?? null,
+            'customer_phone'   => $validated['customer_phone'] ?? null,
             'lines'            => array_map(function ($line) {
                 return [
                     'product_id' => (int) $line['product_id'],
@@ -99,6 +115,62 @@ class TransferController extends Controller
             ->findOrFail($id);
 
         return view('transfers.show', compact('group'));
+    }
+
+    public function edit(int $id)
+    {
+        $group = MovementGroup::where('type', MovementType::Transfer)
+            ->with(['movements.fromLocation', 'movements.toLocation'])
+            ->findOrFail($id);
+
+        return view('transfers.edit', compact('group'));
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $group = MovementGroup::where('type', MovementType::Transfer)
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'customer_name'  => ['nullable', 'string', 'max:120'],
+            'customer_phone' => ['nullable', 'string', 'max:20'],
+            'notes'          => ['nullable', 'string'],
+        ]);
+
+        $group->update($validated);
+
+        return redirect()
+            ->route('inventory.transfers.show', $group->id)
+            ->with('success', 'Datos del traslado actualizados correctamente.');
+    }
+
+    /**
+     * AJAX: return products that have stock > 0 at a given location.
+     * GET /inventory/transfers/products-by-location?location_id=X
+     */
+    public function productsByLocation(Request $request): JsonResponse
+    {
+        $request->validate([
+            'location_id' => ['required', 'integer', 'exists:locations,id'],
+        ]);
+
+        $locationId = (int) $request->location_id;
+
+        $products = Product::with('barcodes:product_id,barcode')
+            ->whereHas('stockCache', fn ($q) =>
+                $q->where('location_id', $locationId)->where('quantity', '>', 0)
+            )
+            ->where('active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'use_batches'])
+            ->map(fn ($p) => [
+                'id'          => $p->id,
+                'name'        => $p->name,
+                'use_batches' => (bool) $p->use_batches,
+                'barcodes'    => $p->barcodes->pluck('barcode')->values()->toArray(),
+            ]);
+
+        return response()->json(['products' => $products]);
     }
 
     /**
@@ -153,5 +225,28 @@ class TransferController extends Controller
             'available' => (float) $available,
             'batches'   => $batches,
         ]);
+    }
+
+    public function cancel(int $id)
+    {
+        $group = MovementGroup::where('type', MovementType::Transfer)->findOrFail($id);
+
+        if ($group->isCancelled()) {
+            return redirect()
+                ->route('inventory.transfers.show', $id)
+                ->with('error', 'Este traslado ya fue cancelado.');
+        }
+
+        try {
+            $this->inventory->cancelTransfer($group);
+        } catch (\Throwable $e) {
+            return redirect()
+                ->route('inventory.transfers.show', $id)
+                ->with('error', 'Error al cancelar el traslado: ' . $e->getMessage());
+        }
+
+        return redirect()
+            ->route('inventory.transfers.show', $id)
+            ->with('success', 'Traslado cancelado y stock revertido correctamente.');
     }
 }

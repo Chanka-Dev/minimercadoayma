@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdjustmentController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\LocationController;
@@ -32,7 +33,7 @@ Route::post('/sidebar/toggle', [SidebarController::class, 'toggle'])->name('side
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
 
 // ── Catálogo: Categorías ──────────────────────────────────────────────────────
@@ -68,11 +69,15 @@ Route::middleware(['auth', 'role:master,admin,warehouse_manager'])
     ->prefix('inventory/transfers')
     ->name('inventory.transfers.')
     ->group(function () {
-        Route::get('/stock',  [TransferController::class, 'getAvailableStock'])->name('stock');
-        Route::get('/',       [TransferController::class, 'index'])->name('index');
-        Route::get('/create', [TransferController::class, 'create'])->name('create');
+        Route::get('/stock',              [TransferController::class, 'getAvailableStock'])->name('stock');
+        Route::get('/products-by-location',[TransferController::class, 'productsByLocation'])->name('productsByLocation');
+        Route::get('/',        [TransferController::class, 'index'])->name('index');
+        Route::get('/create',  [TransferController::class, 'create'])->name('create');
         Route::post('/',       [TransferController::class, 'store'])->name('store');
-        Route::get('/{id}',   [TransferController::class, 'show'])->name('show');
+        Route::get('/{id}',    [TransferController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [TransferController::class, 'edit'])->name('edit');
+        Route::put('/{id}',    [TransferController::class, 'update'])->name('update');
+        Route::post('/{id}/cancel', [TransferController::class, 'cancel'])->name('cancel');
     });
 
 // ── Inventory: Adjustments ────────────────────────────────────────────────────

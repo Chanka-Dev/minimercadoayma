@@ -12,15 +12,25 @@ class MovementGroup extends Model
 {
     protected $fillable = [
         'type',
+        'status',
         'reference_doc',
         'user_id',
         'origin_location_id',
         'notes',
+        'customer_name',
+        'customer_phone',
+        'cancelled_at',
     ];
 
     protected $casts = [
-        'type' => MovementType::class,
+        'type'         => MovementType::class,
+        'cancelled_at' => 'datetime',
     ];
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
 
     public function user(): BelongsTo
     {

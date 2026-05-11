@@ -11,6 +11,7 @@ use App\Models\Location;
 use App\Models\MovementGroup;
 use App\Models\Product;
 use App\Models\StockCache;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
@@ -55,30 +56,26 @@ class ReportController extends Controller
         // ── Movimientos de hoy ────────────────────────────────────────────────
         $todayMovements = InventoryMovement::whereDate('created_at', $today)->count();
 
-        // ── Ventas de hoy ─────────────────────────────────────────────────────
-        $salesToday = MovementGroup::where('type', MovementType::Sale)
-            ->whereDate('created_at', $today)
-            ->count();
-
-        $salesTodayAmount = DB::table('documents as d')
-            ->join('movement_groups as mg', 'mg.id', '=', 'd.movement_group_id')
-            ->where('mg.type', 'sale')
-            ->whereDate('mg.created_at', $today)
-            ->sum('d.total_amount');
-
-        // ── Ventas esta semana ────────────────────────────────────────────────
-        $salesWeek = MovementGroup::where('type', MovementType::Sale)
-            ->whereDate('created_at', '>=', $weekStart)
-            ->count();
-
         // ── Compras de hoy ────────────────────────────────────────────────────
         $purchasesToday = MovementGroup::where('type', MovementType::Purchase)
             ->whereDate('created_at', $today)
             ->count();
 
-        // ── Últimas 8 ventas ──────────────────────────────────────────────────
-        $recentSales = MovementGroup::where('type', MovementType::Sale)
-            ->with(['document', 'user:id,name'])
+        $purchasesTodayAmount = DB::table('movement_groups as mg')
+            ->join('inventory_movements as im', 'im.group_id', '=', 'mg.id')
+            ->where('mg.type', MovementType::Purchase->value)
+            ->whereDate('mg.created_at', $today)
+            ->whereNotNull('im.unit_cost')
+            ->selectRaw('SUM(im.quantity * im.unit_cost) as total')
+            ->value('total') ?? 0;
+
+        $purchasesWeek = MovementGroup::where('type', MovementType::Purchase)
+            ->whereDate('created_at', '>=', $weekStart)
+            ->count();
+
+        // ── Últimas 8 compras ─────────────────────────────────────────────────
+        $recentPurchases = MovementGroup::where('type', MovementType::Purchase)
+            ->with(['originLocation:id,name', 'user:id,name'])
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();
@@ -88,11 +85,10 @@ class ReportController extends Controller
             'expiredCount',
             'activeProducts',
             'todayMovements',
-            'salesToday',
-            'salesTodayAmount',
-            'salesWeek',
             'purchasesToday',
-            'recentSales'
+            'purchasesTodayAmount',
+            'purchasesWeek',
+            'recentPurchases'
         ));
     }
 
@@ -155,20 +151,13 @@ class ReportController extends Controller
         $export     = $request->boolean('export');
         $canCost    = $this->canSeeCosts();
 
-        // Last unit_cost per product from purchase movements
-        $lastCostSub = DB::table('inventory_movements as im')
-            ->join('movement_groups as mg', 'mg.id', '=', 'im.group_id')
-            ->where('mg.type', MovementType::Purchase->value)
-            ->whereNotNull('im.unit_cost')
-            ->select('im.product_id', DB::raw('MAX(im.id) as last_movement_id'))
-            ->groupBy('im.product_id');
-
+        // Per-batch stock query with supplier, purchase date, expiration date, per-batch unit cost
         $query = DB::table('stock_cache as sc')
             ->join('products as p', 'p.id', '=', 'sc.product_id')
             ->join('locations as l', 'l.id', '=', 'sc.location_id')
             ->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
-            ->leftJoinSub($lastCostSub, 'lc', 'lc.product_id', '=', 'sc.product_id')
-            ->leftJoin('inventory_movements as im2', 'im2.id', '=', 'lc.last_movement_id')
+            ->leftJoin('batches as b', 'b.id', '=', 'sc.batch_id')
+            ->leftJoin('suppliers as s', 's.id', '=', 'b.supplier_id')
             ->where('sc.quantity', '>', 0)
             ->when($locationId, fn ($q) => $q->where('sc.location_id', $locationId))
             ->when($categoryId, fn ($q) => $q->where('p.category_id', $categoryId))
@@ -180,16 +169,40 @@ class ReportController extends Controller
                 'c.name as category',
                 'l.id as location_id',
                 'l.name as location',
-                DB::raw('SUM(sc.quantity) as total_qty'),
-                DB::raw('MAX(im2.unit_cost) as unit_cost')
+                'sc.batch_id',
+                'b.batch_code',
+                'b.expiration_date',
+                's.name as supplier',
+                'sc.quantity',
+                DB::raw("(
+                    SELECT im.unit_cost
+                    FROM inventory_movements im
+                    JOIN movement_groups mg ON mg.id = im.group_id
+                    WHERE mg.type = 'purchase'
+                      AND im.product_id = sc.product_id
+                      AND (sc.batch_id IS NULL OR im.batch_id = sc.batch_id)
+                      AND im.unit_cost IS NOT NULL
+                    ORDER BY im.id DESC
+                    LIMIT 1
+                ) as unit_cost"),
+                DB::raw("(
+                    SELECT mg.created_at
+                    FROM inventory_movements im
+                    JOIN movement_groups mg ON mg.id = im.group_id
+                    WHERE mg.type = 'purchase'
+                      AND im.product_id = sc.product_id
+                      AND (sc.batch_id IS NULL OR im.batch_id = sc.batch_id)
+                    ORDER BY mg.created_at ASC
+                    LIMIT 1
+                ) as purchase_date")
             )
-            ->groupBy('p.id', 'p.name', 'p.unit_of_measure', 'c.name', 'l.id', 'l.name')
             ->orderBy('l.name')
-            ->orderBy('p.name');
+            ->orderBy('p.name')
+            ->orderByRaw('b.expiration_date ASC NULLS LAST');
 
         if ($export) {
-            $rows = $query->get();
-            $headers = ['Producto', 'Categoría', 'Ubicación', 'Cantidad', 'Unidad'];
+            $rows    = $query->get();
+            $headers = ['Producto', 'Categoría', 'Ubicación', 'Lote', 'Proveedor', 'F. Compra', 'Vencimiento', 'Cantidad', 'Unidad'];
             if ($canCost) {
                 $headers[] = 'Costo Unit.';
                 $headers[] = 'Valor Total';
@@ -198,10 +211,20 @@ class ReportController extends Controller
                 'stock_' . now()->format('Ymd') . '.csv',
                 $headers,
                 $rows->map(function ($r) use ($canCost) {
-                    $row = [$r->product, $r->category ?? '—', $r->location, $r->total_qty, $r->unit_of_measure ?? ''];
+                    $row = [
+                        $r->product,
+                        $r->category  ?? '—',
+                        $r->location,
+                        $r->batch_code ?? '—',
+                        $r->supplier   ?? '—',
+                        $r->purchase_date    ? \Carbon\Carbon::parse($r->purchase_date)->format('d/m/Y')    : '—',
+                        $r->expiration_date  ? \Carbon\Carbon::parse($r->expiration_date)->format('d/m/Y') : '—',
+                        $r->quantity,
+                        $r->unit_of_measure ?? '',
+                    ];
                     if ($canCost) {
                         $row[] = number_format($r->unit_cost ?? 0, 2);
-                        $row[] = number_format(($r->total_qty ?? 0) * ($r->unit_cost ?? 0), 2);
+                        $row[] = number_format(($r->quantity ?? 0) * ($r->unit_cost ?? 0), 2);
                     }
                     return $row;
                 })->toArray()
@@ -216,21 +239,36 @@ class ReportController extends Controller
                         ->orderBy('name')
                         ->get(['id', 'name']);
 
-        $totalValue = $canCost
-            ? DB::table('stock_cache as sc')
-                ->join('products as p', 'p.id', '=', 'sc.product_id')
-                ->leftJoinSub($lastCostSub, 'lc', 'lc.product_id', '=', 'sc.product_id')
-                ->leftJoin('inventory_movements as im2', 'im2.id', '=', 'lc.last_movement_id')
-                ->where('sc.quantity', '>', 0)
-                ->when($locationId, fn ($q) => $q->where('sc.location_id', $locationId))
-                ->when($categoryId, fn ($q) => $q->where('p.category_id', $categoryId))
-                ->when($productId,  fn ($q) => $q->where('sc.product_id', $productId))
-                ->sum(DB::raw('sc.quantity * COALESCE(im2.unit_cost, 0)'))
-            : null;
+        // Total quantity and (if canCost) total value using per-batch unit cost
+        $totalsBase = DB::table('stock_cache as sc')
+            ->join('products as p', 'p.id', '=', 'sc.product_id')
+            ->where('sc.quantity', '>', 0)
+            ->when($locationId, fn ($q) => $q->where('sc.location_id', $locationId))
+            ->when($categoryId, fn ($q) => $q->where('p.category_id', $categoryId))
+            ->when($productId,  fn ($q) => $q->where('sc.product_id', $productId));
+
+        if ($canCost) {
+            $totals = (clone $totalsBase)->selectRaw("
+                SUM(sc.quantity) as total_qty,
+                SUM(sc.quantity * COALESCE((
+                    SELECT im.unit_cost
+                    FROM inventory_movements im
+                    JOIN movement_groups mg ON mg.id = im.group_id
+                    WHERE mg.type = 'purchase'
+                      AND im.product_id = sc.product_id
+                      AND (sc.batch_id IS NULL OR im.batch_id = sc.batch_id)
+                      AND im.unit_cost IS NOT NULL
+                    ORDER BY im.id DESC
+                    LIMIT 1
+                ), 0)) as total_value
+            ")->first();
+        } else {
+            $totals = (clone $totalsBase)->selectRaw("SUM(sc.quantity) as total_qty")->first();
+        }
 
         return view('reports.stock', compact(
             'rows', 'locations', 'categories', 'products',
-            'locationId', 'categoryId', 'productId', 'canCost', 'totalValue'
+            'locationId', 'categoryId', 'productId', 'canCost', 'totals'
         ));
     }
 

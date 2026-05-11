@@ -106,18 +106,33 @@
         </form>
     </div>
 
-    {{-- Valorización total (solo roles con costos) --}}
-    @if($canCost && $totalValue !== null)
-        <div class="my-5 flex items-center justify-between rounded-[2rem] border border-blue-100 bg-blue-50 px-8 py-5 shadow-sm">
-            <div>
-                <p class="text-[10px] font-bold uppercase tracking-widest text-blue-500">Valorización total del inventario</p>
-                @if($locationId || $categoryId)
-                    <p class="mt-0.5 text-xs font-medium text-blue-400">(Filtrado por los criterios seleccionados)</p>
-                @endif
+    {{-- Totales del inventario --}}
+    @if($totals)
+        <div class="my-5 grid gap-3 {{ $canCost ? 'sm:grid-cols-2' : '' }}">
+            <div class="flex items-center justify-between rounded-[2rem] border border-emerald-100 bg-emerald-50 px-8 py-5 shadow-sm">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Total unidades en stock</p>
+                    @if($locationId || $categoryId || $productId)
+                        <p class="mt-0.5 text-xs font-medium text-emerald-400">(filtrado por criterios seleccionados)</p>
+                    @endif
+                </div>
+                <span class="font-mono text-2xl font-black text-emerald-700">
+                    {{ number_format((float) $totals->total_qty, 2) }}
+                </span>
             </div>
-            <span class="font-mono text-2xl font-black text-blue-700">
-                Bs. {{ number_format((float) $totalValue, 2) }}
-            </span>
+            @if($canCost)
+                <div class="flex items-center justify-between rounded-[2rem] border border-blue-100 bg-blue-50 px-8 py-5 shadow-sm">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-blue-500">Valorización total del inventario</p>
+                        @if($locationId || $categoryId || $productId)
+                            <p class="mt-0.5 text-xs font-medium text-blue-400">(filtrado por criterios seleccionados)</p>
+                        @endif
+                    </div>
+                    <span class="font-mono text-2xl font-black text-blue-700">
+                        Bs. {{ number_format((float) ($totals->total_value ?? 0), 2) }}
+                    </span>
+                </div>
+            @endif
         </div>
     @else
         <div class="my-5"></div>
@@ -129,14 +144,18 @@
             <table class="w-full text-left">
                 <thead>
                     <tr class="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                        <th class="pb-4 pl-8 pt-6">Producto</th>
-                        <th class="pb-4 pt-6">Categoría</th>
-                        <th class="pb-4 pt-6">Ubicación</th>
-                        <th class="pb-4 pt-6 text-right">Cantidad</th>
-                        <th class="pb-4 pt-6 text-center">UM</th>
+                        <th class="pb-4 pl-8 pt-6 whitespace-nowrap">Producto</th>
+                        <th class="pb-4 pt-6 whitespace-nowrap">Categoría</th>
+                        <th class="pb-4 pt-6 whitespace-nowrap">Ubicación</th>
+                        <th class="pb-4 pt-6 whitespace-nowrap">Lote</th>
+                        <th class="pb-4 pt-6 whitespace-nowrap">Proveedor</th>
+                        <th class="pb-4 pt-6 whitespace-nowrap">F. Compra</th>
+                        <th class="pb-4 pt-6 whitespace-nowrap">Vencimiento</th>
+                        <th class="pb-4 pt-6 text-right whitespace-nowrap">Cantidad</th>
+                        <th class="pb-4 pt-6 text-center whitespace-nowrap">UM</th>
                         @if($canCost)
-                            <th class="pb-4 pt-6 text-right">Costo Unit.</th>
-                            <th class="pb-4 pr-8 pt-6 text-right">Valor Total</th>
+                            <th class="pb-4 pt-6 text-right whitespace-nowrap">Costo Unit.</th>
+                            <th class="pb-4 pr-8 pt-6 text-right whitespace-nowrap">Valor Total</th>
                         @else
                             <th class="pb-4 pr-8 pt-6"></th>
                         @endif
@@ -144,35 +163,63 @@
                 </thead>
                 <tbody class="divide-y divide-gray-50 border-t border-gray-50">
                     @forelse($rows as $row)
+                        @php
+                            $expDate    = $row->expiration_date ? \Carbon\Carbon::parse($row->expiration_date) : null;
+                            $isExpired  = $expDate && $expDate->isPast();
+                            $isExpiring = $expDate && !$isExpired && $expDate->diffInDays(now()) <= 30;
+                            $purchDate  = $row->purchase_date ? \Carbon\Carbon::parse($row->purchase_date) : null;
+                        @endphp
                         <tr class="group transition-colors hover:bg-gray-50/50">
-                            <td class="py-5 pl-8 text-sm font-bold text-[#1e293b]">
+                            <td class="py-5 pl-8 pr-6 text-sm font-bold text-[#1e293b] whitespace-nowrap">
                                 {{ $row->product }}
                             </td>
-                            <td class="py-5 text-sm text-gray-500">
+                            <td class="py-5 pr-6 text-sm text-gray-500 whitespace-nowrap">
                                 {{ $row->category ?? '—' }}
                             </td>
-                            <td class="py-5">
+                            <td class="py-5 pr-6 whitespace-nowrap">
                                 <span class="inline-flex items-center rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase text-gray-500">
                                     {{ $row->location }}
                                 </span>
                             </td>
-                            <td class="py-5 text-right font-black text-[#1e293b]">
-                                {{ number_format($row->total_qty, 2) }}
+                            <td class="py-5 pr-6 font-mono text-xs text-gray-500 whitespace-nowrap">
+                                {{ $row->batch_code ?? '—' }}
                             </td>
-                            <td class="py-5 text-center text-xs font-medium text-gray-400">
+                            <td class="py-5 pr-6 text-xs text-gray-500 whitespace-nowrap">
+                                {{ $row->supplier ?? '—' }}
+                            </td>
+                            <td class="py-5 pr-6 text-xs text-gray-400 whitespace-nowrap">
+                                {{ $purchDate ? $purchDate->format('d/m/Y') : '—' }}
+                            </td>
+                            <td class="py-5 pr-8 text-xs font-bold whitespace-nowrap
+                                {{ $isExpired ? 'text-[#e11d48]' : ($isExpiring ? 'text-amber-600' : 'text-gray-500') }}">
+                                @if($expDate)
+                                    {{ $expDate->format('d/m/Y') }}
+                                    @if($isExpired)
+                                        <span class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[9px] font-bold text-[#e11d48]">VENCIDO</span>
+                                    @elseif($isExpiring)
+                                        <span class="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-600">POR VEN.</span>
+                                    @endif
+                                @else
+                                    <span class="text-gray-300">—</span>
+                                @endif
+                            </td>
+                            <td class="py-5 pr-2 text-right font-black text-[#1e293b] whitespace-nowrap">
+                                {{ number_format($row->quantity, 2) }}
+                            </td>
+                            <td class="py-5 pl-2 pr-8 text-left text-xs font-medium text-gray-400 whitespace-nowrap">
                                 {{ $row->unit_of_measure ?: '—' }}
                             </td>
                             @if($canCost)
-                                <td class="py-5 text-right font-bold text-[#e11d48]">
+                                <td class="py-5 pr-3 text-right font-bold text-[#e11d48] whitespace-nowrap">
                                     @if($row->unit_cost)
                                         Bs. {{ number_format($row->unit_cost, 2) }}
                                     @else
                                         <span class="text-gray-300">—</span>
                                     @endif
                                 </td>
-                                <td class="py-5 pr-8 text-right font-black text-[#1e293b]">
+                                <td class="py-5 pr-8 text-right font-black text-[#1e293b] whitespace-nowrap">
                                     @if($row->unit_cost)
-                                        Bs. {{ number_format($row->total_qty * $row->unit_cost, 2) }}
+                                        Bs. {{ number_format($row->quantity * $row->unit_cost, 2) }}
                                     @else
                                         <span class="text-gray-300">—</span>
                                     @endif
@@ -183,7 +230,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $canCost ? 7 : 5 }}" class="py-20 text-center">
+                            <td colspan="{{ $canCost ? 11 : 9 }}" class="py-20 text-center">
                                 <p class="text-sm font-medium italic text-gray-400">No hay stock registrado con los filtros seleccionados.</p>
                             </td>
                         </tr>

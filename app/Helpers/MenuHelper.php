@@ -9,7 +9,7 @@ class MenuHelper
         return [
             [
                 'icon' => 'dashboard',
-                'name' => 'Dashboard',
+                'name' => 'Inicio',
                 'path' => '/dashboard',
             ],
             [
@@ -31,13 +31,8 @@ class MenuHelper
                 ],
             ],
             [
-                'icon' => 'chat',
-                'name' => 'Ventas',
-                'path' => '/sales',
-            ],
-            [
                 'icon' => 'charts',
-                'name' => 'Reportes',
+                'name' => 'Reportes | Control',
                 'subItems' => [
                     ['name' => 'Resumen',         'path' => '/reports'],
                     ['name' => 'Vencimientos',    'path' => '/reports/expirations'],

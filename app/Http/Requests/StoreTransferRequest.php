@@ -16,8 +16,10 @@ class StoreTransferRequest extends FormRequest
     {
         return [
             'from_location_id'     => ['required', 'integer', 'exists:locations,id'],
-            'to_location_id'       => ['required', 'integer', 'exists:locations,id', 'different:from_location_id'],
+            'to_location_id'       => ['nullable', 'string'],  // 'third_party' or a location id
             'notes'                => ['nullable', 'string'],
+            'customer_name'        => ['nullable', 'string', 'max:120'],
+            'customer_phone'       => ['nullable', 'string', 'max:20'],
             'lines'                => ['required', 'array', 'min:1'],
             'lines.*.product_id'   => ['required', 'integer', 'exists:products,id'],
             'lines.*.batch_id'     => ['nullable', 'integer', 'exists:batches,id'],

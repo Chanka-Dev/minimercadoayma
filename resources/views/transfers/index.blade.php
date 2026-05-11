@@ -104,10 +104,13 @@
                             $outMove = $transfer->movements->first(fn($m) => $m->from_location_id !== null);
                             $inMove  = $transfer->movements->first(fn($m) => $m->to_location_id !== null);
                         @endphp
-                        <tr class="hover:bg-gray-50/50 transition-colors">
-                            <td class="px-8 py-4 font-bold text-[#1e293b]">
-                                {{ $transfer->created_at->format('d/m/Y') }}
+                        <tr class="hover:bg-gray-50/50 transition-colors {{ $transfer->status === 'cancelled' ? 'opacity-60' : '' }}">
+                            <td class="px-8 py-4">
+                                <span class="block font-bold text-[#1e293b]">{{ $transfer->created_at->format('d/m/Y') }}</span>
                                 <span class="block text-[10px] font-medium text-gray-400">{{ $transfer->created_at->format('H:i') }}</span>
+                                @if($transfer->status === 'cancelled')
+                                    <span class="mt-1 inline-flex items-center rounded-md bg-red-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-red-600">Cancelado</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4">
                                 <span class="rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-600">
@@ -115,19 +118,41 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4">
-                                <span class="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600">
-                                    {{ $inMove?->toLocation?->name ?? '—' }}
-                                </span>
+                                @if($inMove?->toLocation)
+                                    <span class="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600">
+                                        {{ $inMove->toLocation->name }}
+                                    </span>
+                                @else
+                                    <span class="rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-600">
+                                        🧍 Tercero
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 font-medium text-gray-500">{{ $transfer->user?->name ?? '—' }}</td>
                             <td class="px-6 py-4 text-gray-500 max-w-xs truncate italic">
                                 {{ $transfer->notes ?? '—' }}
                             </td>
-                            <td class="px-8 py-4 text-right">
-                                <a href="{{ route('inventory.transfers.show', $transfer->id) }}"
-                                    class="inline-flex h-8 items-center rounded-lg bg-gray-100 px-4 text-xs font-black uppercase tracking-widest text-gray-500 hover:bg-[#1e293b] hover:text-white transition-all">
-                                    Ver
-                                </a>
+                            <td class="px-8 py-4">
+                                <div class="flex items-center justify-end gap-2">
+                                    <a href="{{ route('inventory.transfers.show', $transfer->id) }}"
+                                        class="inline-flex h-8 items-center rounded-lg bg-gray-100 px-3 text-xs font-black uppercase tracking-widest text-gray-500 hover:bg-[#1e293b] hover:text-white transition-all">
+                                        Ver
+                                    </a>
+                                    @if($transfer->status !== 'cancelled')
+                                        <a href="{{ route('inventory.transfers.edit', $transfer->id) }}"
+                                            class="inline-flex h-8 items-center rounded-lg bg-blue-50 px-3 text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-600 hover:text-white transition-all">
+                                            Editar
+                                        </a>
+                                        <form method="POST" action="{{ route('inventory.transfers.cancel', $transfer->id) }}"
+                                            onsubmit="return confirm('¿Cancelar este traslado? Se revertirá el stock al origen.')">
+                                            @csrf
+                                            <button type="submit"
+                                                class="inline-flex h-8 items-center rounded-lg bg-red-50 px-3 text-xs font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white transition-all">
+                                                Cancelar
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
