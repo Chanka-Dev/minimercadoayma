@@ -79,13 +79,20 @@
     {{-- NAVBAR --}}
     <header class="fixed inset-x-0 top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-            <a href="#" class="flex items-center gap-3">
-                <img src="{{ asset('images/logo-ayma.png') }}" alt="AYMA Micromercado" class="h-10 w-auto" />
-                <div>
-                    <p class="text-sm font-black text-[#1e293b] leading-tight">AYMA Micromercado</p>
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Sucre, Bolivia</p>
+            <div class="flex items-center gap-4">
+                <a href="#" class="flex items-center gap-3">
+                    <img src="{{ asset('images/logo-ayma.png') }}" alt="AYMA Micromercado" class="h-10 w-auto" />
+                    <div>
+                        <p class="text-sm font-black text-[#1e293b] leading-tight">AYMA Micromercado</p>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Sucre, Bolivia</p>
+                    </div>
+                </a>
+                <div class="hidden md:flex items-center pl-4 border-l border-gray-200">
+                    <a href="https://www.upds.edu.bo/sede/sucre/" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
+                        <img src="{{ asset('images/upds/upds-sucre-color.png') }}" alt="UPDS Sede Sucre" class="h-8 w-auto hover:opacity-85 transition-opacity" />
+                    </a>
                 </div>
-            </a>
+            </div>
             <nav class="hidden sm:flex items-center gap-8 text-sm font-semibold text-gray-500">
                 <a href="#departamentos" class="hover:text-[#e11d48] transition-colors">Productos</a>
                 <a href="#locales" class="hover:text-[#e11d48] transition-colors">Locales</a>
@@ -324,12 +331,20 @@
 
             <div class="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
                 <div class="flex items-center gap-3">
-                    <img src="{{ asset('images/logo-ayma.png') }}" alt="AYMA" class="h-8 w-auto opacity-60" />
+                    <img src="{{ asset('images/logo-ayma.png') }}" alt="AYMA" class="h-8 w-auto opacity-70" />
                     <div>
-                        <p class="text-sm font-black text-gray-400">AYMA Micromercado</p>
-                        <p class="text-xs font-medium text-gray-300">Sucre, Bolivia &middot; {{ date('Y') }}</p>
+                        <p class="text-sm font-black text-gray-600">AYMA Micromercado</p>
+                        <p class="text-xs font-medium text-gray-400">Sucre, Bolivia &middot; {{ date('Y') }}</p>
                     </div>
                 </div>
+
+                <!-- Respaldo Institucional UPDS -->
+                <div class="flex items-center gap-3 border-y sm:border-y-0 sm:border-x border-gray-200 py-3 sm:py-0 sm:px-6">
+                    <a href="https://www.upds.edu.bo/sede/sucre/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 group" title="Universidad Privada Domingo Savio — Sede Sucre">
+                        <img src="{{ asset('images/upds/upds-sucre-color.png') }}" alt="Universidad Privada Domingo Savio — Sede Sucre" class="h-8 w-auto group-hover:scale-105 transition-transform" />
+                    </a>
+                </div>
+
                 <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
                     <a href="#departamentos" class="hover:text-[#e11d48] transition-colors">Productos</a>
                     <span class="text-gray-200">&middot;</span>
@@ -339,16 +354,22 @@
                 </div>
             </div>
 
-            <div class="my-8 border-t border-gray-100"></div>
+            <div class="my-6 border-t border-gray-200/60"></div>
 
-            {{-- Acceso al sistema, discreto, para el personal --}}
-            <div class="flex items-center justify-center gap-3">
-                <span class="text-xs font-medium text-gray-300">¿Sos del equipo AYMA?</span>
-                <a href="{{ route('login') }}"
-                   class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-400 transition-all hover:border-gray-300 hover:text-[#1e293b] hover:shadow-sm">
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                    Acceso al sistema
-                </a>
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p class="text-xs text-gray-400 text-center sm:text-left">
+                    Proyecto de desarrollo &middot; <strong class="font-semibold text-gray-500">Universidad Privada Domingo Savio (Sede Sucre)</strong>
+                </p>
+
+                {{-- Acceso al sistema, discreto, para el personal --}}
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-xs font-medium text-gray-400">¿Sos del equipo AYMA?</span>
+                    <a href="{{ route('login') }}"
+                       class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-600 transition-all hover:border-gray-300 hover:text-[#1e293b] hover:shadow-sm">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                        Acceso al sistema
+                    </a>
+                </div>
             </div>
 
         </div>

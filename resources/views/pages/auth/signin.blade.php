@@ -94,6 +94,15 @@
                                     </div>
                                 </div>
                             </form>
+
+                            <!-- Sello Institucional UPDS para versión móvil -->
+                            <div class="mt-8 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col items-center gap-2 lg:hidden">
+                                <span class="text-[11px] font-medium text-gray-400">Proyecto desarrollado en</span>
+                                <a href="https://www.upds.edu.bo/sede/sucre/" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
+                                    <img src="{{ asset('images/upds/upds-sucre-color.png') }}" alt="UPDS Sucre" class="h-6 w-auto dark:hidden" />
+                                    <img src="{{ asset('images/upds/upds-sucre-color-fondo-oscuro.png') }}" alt="UPDS Sucre" class="h-6 w-auto hidden dark:block" />
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -113,6 +122,16 @@
                         <p class="mt-2 text-center text-sm text-gray-400 dark:text-white/60">
                             Sistema integral de gestión de inventario, ventas y reportes
                         </p>
+
+                        <!-- Sello Institucional UPDS -->
+                        <div class="mt-8 pt-6 border-t border-white/10 flex flex-col items-center w-full">
+                            <span class="text-[11px] uppercase tracking-wider text-gray-400 mb-3">En convenio académico con</span>
+                            <a href="https://www.upds.edu.bo/sede/sucre/" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
+                                <img src="{{ asset('images/upds/upds-sucre-color-fondo-oscuro.png') }}"
+                                     alt="Universidad Privada Domingo Savio — Sede Sucre"
+                                     class="h-9 w-auto opacity-85 hover:opacity-100 transition-opacity drop-shadow" />
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

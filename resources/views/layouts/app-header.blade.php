@@ -70,6 +70,14 @@
         <div :class="isApplicationMenuOpen ? 'flex' : 'hidden'"
             class="items-center justify-between w-full gap-4 px-5 py-4 xl:flex shadow-theme-md xl:justify-end xl:px-0 xl:shadow-none">
             <div class="flex items-center gap-2 2xsm:gap-3">
+                <!-- Sello Institucional UPDS -->
+                <div class="hidden sm:flex items-center pr-2 mr-1 border-r border-gray-200 dark:border-gray-800">
+                    <a href="https://www.upds.edu.bo/sede/sucre/" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre" class="hover:opacity-85 transition-opacity">
+                        <img src="{{ asset('images/upds/upds-sucre-color.png') }}" alt="UPDS Sucre" class="h-6 w-auto dark:hidden" />
+                        <img src="{{ asset('images/upds/upds-sucre-color-fondo-oscuro.png') }}" alt="UPDS Sucre" class="h-6 w-auto hidden dark:block" />
+                    </a>
+                </div>
+
                 <!-- Theme Toggle Button -->
                 <button
                     class="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
